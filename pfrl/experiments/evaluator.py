@@ -304,7 +304,8 @@ def eval_performance(
         max=np.max(scores),
         min=np.min(scores),
         average_episode_len=statistics.mean(lengths),
-        wallclock_time=wallclock_time
+        wallclock_time=wallclock_time,
+        fps=sum(lengths) / wallclock_time
     )
     return stats
 
