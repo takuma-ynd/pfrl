@@ -29,6 +29,9 @@ _basic_columns = (
     "stdev",
     "max",
     "min",
+    "average_episode_len",
+    "wallclock_time",
+    "fps"
 )
 
 
@@ -130,11 +133,13 @@ def _batch_run_episodes(
 
     termination_conditions = False
     timestep = 0
+    eval_begin_time = time.time()
     while True:
         # a_t
         actions = agent.batch_act(obss)
         timestep += 1
         # o_{t+1}, r_{t+1}
+        logger.info('(eval) env.step(actions) timestep %s' % timestep)
         obss, rs, dones, infos = env.step(actions)
         episode_r += rs
         episode_len += 1
@@ -211,11 +216,14 @@ def _batch_run_episodes(
         else:
             obss = env.reset(not_end)
 
+    eval_end_time = time.time()
+    eval_wallclock_time = eval_end_time - eval_begin_time
     for i, (epi_len, epi_ret) in enumerate(
         zip(eval_episode_lens, eval_episode_returns)
     ):
         logger.info("evaluation episode %s length: %s R: %s", i, epi_len, epi_ret)
-    return [float(r) for r in eval_episode_returns]
+    eval_episode_returns_ = [float(r) for r in eval_episode_returns]
+    return eval_episode_returns_, eval_episode_lens, eval_wallclock_time
 
 
 def batch_run_evaluation_episodes(
@@ -271,7 +279,7 @@ def eval_performance(
     assert (n_steps is None) != (n_episodes is None)
 
     if isinstance(env, pfrl.env.VectorEnv):
-        scores = batch_run_evaluation_episodes(
+        scores, lengths, wallclock_time = batch_run_evaluation_episodes(
             env,
             agent,
             n_steps,
@@ -295,6 +303,8 @@ def eval_performance(
         stdev=statistics.stdev(scores) if len(scores) >= 2 else 0.0,
         max=np.max(scores),
         min=np.min(scores),
+        average_episode_len=statistics.mean(lengths),
+        wallclock_time=wallclock_time
     )
     return stats
 
@@ -433,6 +443,9 @@ class Evaluator(object):
             eval_stats["stdev"],
             eval_stats["max"],
             eval_stats["min"],
+            eval_stats['average_episode_len'],
+            eval_stats['wallclock_time'],
+            eval_stats['fps']
         ) + custom_values
         record_stats(self.outdir, values)
 
@@ -540,6 +553,9 @@ class AsyncEvaluator(object):
             eval_stats["stdev"],
             eval_stats["max"],
             eval_stats["min"],
+            eval_stats['average_episode_len'],
+            eval_stats['wallclock_time'],
+            eval_stats['fps']
         ) + custom_values
         record_stats(self.outdir, values)
 
