@@ -83,7 +83,9 @@ See https://github.com/numpy/numpy/issues/12793 for details.
         self._assert_not_closed()
         for remote, action in zip(self.remotes, actions):
             remote.send(("step", action))
+        print('waiting for the responses from remote.recv()...')
         results = [remote.recv() for remote in self.remotes]
+        print('waiting for the responses from remote.recv()...DONE')
         self.last_obs, rews, dones, infos = zip(*results)
         return self.last_obs, rews, dones, infos
 
