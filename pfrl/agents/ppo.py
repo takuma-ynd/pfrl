@@ -403,6 +403,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
         if dataset_size >= self.update_interval:
             self._flush_last_episode()
             if self.recurrent:
+                print('_make_dataset_recurrent()...')
                 dataset = _make_dataset_recurrent(
                     episodes=self.memory,
                     model=self.model,
@@ -414,8 +415,10 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
                     max_recurrent_sequence_len=self.max_recurrent_sequence_len,
                     device=self.device,
                 )
+                print('_update_recurrent(dataset)...')
                 self._update_recurrent(dataset)
             else:
+                print('_make_dataset()...')
                 dataset = _make_dataset(
                     episodes=self.memory,
                     model=self.model,
@@ -427,6 +430,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
                     device=self.device,
                 )
                 assert len(dataset) == dataset_size
+                print('_update(dataset)...')
                 self._update(dataset)
             self.explained_variance = _compute_explained_variance(
                 list(itertools.chain.from_iterable(self.memory))
@@ -668,6 +672,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
 
     def _batch_act_eval(self, batch_obs):
         assert not self.training
+        print('_batch_act_eval()')
         b_state = self.batch_states(batch_obs, self.device, self.phi)
 
         if self.obs_normalizer:
@@ -679,12 +684,14 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
                     self.model, b_state, self.test_recurrent_states
                 )
             else:
+                print('self.model(b_state)...')
                 action_distrib, _ = self.model(b_state)
             if self.act_deterministically:
                 action = mode_of_distribution(action_distrib).cpu().numpy()
             else:
                 action = action_distrib.sample().cpu().numpy()
 
+        print('return action')
         return action
 
     def _batch_act_train(self, batch_obs):
