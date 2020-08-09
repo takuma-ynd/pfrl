@@ -453,6 +453,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
 
         device = self.device
 
+        print('updating obs_normalizer...')
         if self.obs_normalizer:
             self._update_obs_normalizer(dataset)
 
@@ -494,6 +495,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
             vs_teacher = vs_teacher[..., None]
 
             self.model.zero_grad()
+            print('calculating loss function...')
             loss = self._lossfun(
                 distribs.entropy(),
                 vs_pred,
@@ -503,11 +505,13 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
                 advs=advs,
                 vs_teacher=vs_teacher,
             )
+            print('loss.backward()...')
             loss.backward()
             if self.max_grad_norm is not None:
                 torch.nn.utils.clip_grad_norm_(
                     self.model.parameters(), self.max_grad_norm
                 )
+            print('optimizer.step()...')
             self.optimizer.step()
             self.n_updates += 1
 
@@ -568,6 +572,7 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
         flat_entropy = flat_distribs.entropy()
 
         self.model.zero_grad()
+        print('calculating loss func...')
         loss = self._lossfun(
             entropy=flat_entropy,
             vs_pred=flat_vs_pred,
@@ -577,9 +582,11 @@ class PPO(agent.AttributeSavingMixin, agent.BatchAgent):
             advs=flat_advs,
             vs_teacher=flat_vs_teacher,
         )
+        print('loss.backward()...')
         loss.backward()
         if self.max_grad_norm is not None:
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.max_grad_norm)
+        print('optimizer.step()...')
         self.optimizer.step()
         self.n_updates += 1
 
