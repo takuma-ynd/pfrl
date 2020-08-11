@@ -461,6 +461,7 @@ class Evaluator(object):
         return mean
 
     def evaluate_if_necessary(self, t, episodes):
+        self.env.ping_remotes()
         if t >= self.prev_eval_t + self.eval_interval:
             score = self.evaluate_and_update_max_score(t, episodes)
             self.prev_eval_t = t - t % self.eval_interval

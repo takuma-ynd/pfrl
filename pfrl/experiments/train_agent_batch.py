@@ -66,6 +66,8 @@ def train_agent_batch(
         while True:
             # a_t
             actions = agent.batch_act(obss)
+            # ping remotes
+            env.ping_remotes()
             # o_{t+1}, r_{t+1}
             obss, rs, dones, infos = env.step(actions)
             episode_r += rs
