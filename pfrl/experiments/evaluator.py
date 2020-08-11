@@ -140,6 +140,8 @@ def _batch_run_episodes(
         timestep += 1
         # o_{t+1}, r_{t+1}
         logger.info('(eval) env.step(actions) timestep %s' % timestep)
+
+        env.ping_remotes()
         obss, rs, dones, infos = env.step(actions)
         episode_r += rs
         episode_len += 1
