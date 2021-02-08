@@ -1,3 +1,4 @@
+import time
 import logging
 import os
 from collections import deque
@@ -45,6 +46,7 @@ def train_agent_batch(
         List of evaluation episode stats dict.
     """
 
+    start = time.time()
     logger = logger or logging.getLogger(__name__)
     recent_returns = deque(maxlen=return_window_size)
 
@@ -109,12 +111,13 @@ def train_agent_batch(
                 and t % log_interval < num_envs
             ):
                 logger.info(
-                    "outdir:{} step:{} episode:{} last_R: {} average_R:{}".format(  # NOQA
+                    "outdir:{} step:{} episode:{} last_R: {} average_R:{} fps:{}".format(  # NOQA
                         outdir,
                         t,
                         np.sum(episode_idx),
                         recent_returns[-1] if recent_returns else np.nan,
                         np.mean(recent_returns) if recent_returns else np.nan,
+                        t / (time.time() - start)
                     )
                 )
                 logger.info("statistics: {}".format(agent.get_statistics()))
