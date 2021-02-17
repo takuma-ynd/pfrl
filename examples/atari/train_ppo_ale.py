@@ -32,7 +32,7 @@ def main():
     parser.add_argument(
         "--num-envs",
         type=int,
-        default=8,
+        default=12,
         help="Number of env instances run in parallel.",
     )
     parser.add_argument("--seed", type=int, default=0, help="Random seed [0, 2 ** 32)")
@@ -277,11 +277,12 @@ def main():
         minibatch_size=args.batchsize,
         epochs=args.epochs,
         clip_eps=0.1,
-        clip_eps_vf=None,
+        clip_eps_vf=0.1,
         standardize_advantages=True,
         entropy_coef=1e-2,
         recurrent=args.recurrent,
-        max_grad_norm=0.5,
+        # max_grad_norm=0.5,
+        max_grad_norm=None,
     )
     if args.load:
         agent.load(args.load)
@@ -305,13 +306,13 @@ def main():
         step_hooks = []
 
         # Linearly decay the learning rate to zero
-        def lr_setter(env, agent, value):
-            for param_group in agent.optimizer.param_groups:
-                param_group["lr"] = value
+        # def lr_setter(env, agent, value):
+        #     for param_group in agent.optimizer.param_groups:
+        #         param_group["lr"] = value
 
-        step_hooks.append(
-            experiments.LinearInterpolationHook(args.steps, args.lr, 0, lr_setter)
-        )
+        # step_hooks.append(
+        #     experiments.LinearInterpolationHook(args.steps, args.lr, 0, lr_setter)
+        # )
 
         experiments.train_agent_batch_with_evaluation(
             agent=agent,
