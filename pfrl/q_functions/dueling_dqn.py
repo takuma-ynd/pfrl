@@ -73,9 +73,11 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
         n_atoms,
         v_min,
         v_max,
+        obs_shape,
         n_input_channels=4,
         activation=torch.relu,
         bias=0.1,
+        flare=False
     ):
         assert n_atoms >= 2
         assert v_min < v_max
@@ -84,10 +86,10 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
         self.n_input_channels = n_input_channels
         self.activation = activation
         self.n_atoms = n_atoms
+        self.flare = flare
 
         super().__init__()
         self.z_values = torch.linspace(v_min, v_max, n_atoms, dtype=torch.float32)
-
         self.conv_layers = nn.ModuleList(
             [
                 nn.Conv2d(n_input_channels, 32, 8, stride=4),
@@ -96,17 +98,30 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
             ]
         )
 
-        self.main_stream = nn.Linear(3136, 1024)
-        self.a_stream = nn.Linear(512, n_actions * n_atoms)
-        self.v_stream = nn.Linear(512, n_atoms)
+        # Change network size if flare is enabled
+        if flare:
+            time_step = obs_shape[0] // self.n_input_channels
+
+            self.main_stream = nn.Linear(64 * 7 * 7 * (2 * time_step - 2), 1024)
+            self.a_stream = nn.Linear(1024 // 2, n_actions * n_atoms)
+            self.v_stream = nn.Linear(1024 // 2, n_atoms)
+
+        else:
+            self.main_stream = nn.Linear(64 * 7 * 7, 1024)
+            self.a_stream = nn.Linear(1024 // 2, n_actions * n_atoms)
+            self.v_stream = nn.Linear(1024 // 2, n_atoms)
+
 
         self.apply(init_chainer_default)
         self.conv_layers.apply(constant_bias_initializer(bias=bias))
 
     def forward(self, x):
-        h = x
-        for layer in self.conv_layers:
-            h = self.activation(layer(h))
+        if self.flare:
+            h = self.forward_flare(x)
+        else:
+            h = x
+            for layer in self.conv_layers:
+                h = self.activation(layer(h))
 
         # Advantage
         batch_size = x.shape[0]
@@ -127,3 +142,26 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
 
         self.z_values = self.z_values.to(x.device)
         return action_value.DistributionalDiscreteActionValue(q, self.z_values)
+
+    def forward_flare(self, x, flatten=True):
+        time_step = x.shape[1] // self.n_input_channels
+        x = x.view(x.shape[0], time_step, self.n_input_channels, x.shape[-2], x.shape[-1])
+        x = x.view(x.shape[0]*time_step, self.n_input_channels, x.shape[-2], x.shape[-1])
+
+        # forward calc
+        conv = x
+        for layer in self.conv_layers:
+            conv = self.activation(layer(conv))
+
+        conv = conv.view(conv.size(0)//time_step, time_step, conv.size(1), conv.size(2), conv.size(3))
+
+        conv_current = conv[:, 1:, :, :, :]
+        conv_prev = conv_current - conv[:, :time_step-1, :, :, :].detach()
+        conv = torch.cat([conv_current, conv_prev], axis=1)
+        conv = conv.view(conv.size(0), conv.size(1)*conv.size(2), conv.size(3), conv.size(4))
+
+        if not flatten:
+            return conv
+        else:
+            conv = conv.view(conv.size(0), -1)
+            return conv

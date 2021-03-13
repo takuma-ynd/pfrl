@@ -25,6 +25,7 @@ def main():
             " If it does not exist, it will be created."
         ),
     )
+    parser.add_argument("--exp-id", type=str, default=None, help="experiment id (used as a dir name)")
     parser.add_argument("--seed", type=int, default=0, help="Random seed [0, 2 ** 31)")
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--demo", action="store_true", default=False)
@@ -42,9 +43,15 @@ def main():
         default=30 * 60 * 60,  # 30 minutes with 60 fps
         help="Maximum number of frames for each episode.",
     )
-    parser.add_argument("--replay-start-size", type=int, default=2 * 10 ** 4)
-    parser.add_argument("--eval-n-steps", type=int, default=125000)
-    parser.add_argument("--eval-interval", type=int, default=250000)
+    # parser.add_argument("--replay-start-size", type=int, default=2 * 10 ** 4)
+    parser.add_argument("--replay-start-size", type=int, default=5 * 10 ** 4)
+    # parser.add_argument("--eval-n-steps", type=int, default=125000)
+    parser.add_argument("--eval-n-steps", type=int, default=75000)
+    # parser.add_argument("--eval-interval", type=int, default=250000)
+    parser.add_argument("--eval-interval", type=int, default=50000)
+    parser.add_argument("--save-interval", type=int, default=50000)
+    parser.add_argument("--flare", action="store_true", default=False)
+    parser.add_argument("--load-contd", action="store_true", default=False)
     parser.add_argument(
         "--log-level",
         type=int,
@@ -79,7 +86,7 @@ def main():
     train_seed = args.seed
     test_seed = 2 ** 31 - 1 - args.seed
 
-    args.outdir = experiments.prepare_output_dir(args, args.outdir)
+    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=args.exp_id)
     print("Output files are saved in {}".format(args.outdir))
 
     def make_env(test):
@@ -115,6 +122,9 @@ def main():
         n_atoms,
         v_min,
         v_max,
+        n_input_channels=1 if args.flare else env.observation_space.shape[0],
+        obs_shape=env.observation_space.shape,
+        flare=args.flare
     )
 
     # Noisy nets
@@ -170,6 +180,16 @@ def main():
                 )[0]
             )
 
+    step_offset = 0
+    if args.load_contd:
+        entries = os.listdir(args.outdir)
+        entries = [e for e in entries if os.path.isdir(os.path.join(args.outdir, e))]
+        entries = [e for e in entries if e.endswith('checkpoint')]
+        if len(entries) > 0:
+            latest_dir = max(entries, key=lambda x: int(x.split('_')[0]))
+            agent.load(os.path.join(args.outdir, latest_dir))
+            step_offset = int(latest_dir.split('_')[0])
+
     if args.demo:
         eval_stats = experiments.eval_performance(
             env=eval_env, agent=agent, n_steps=args.eval_n_steps, n_episodes=None
@@ -184,6 +204,15 @@ def main():
         )
 
     else:
+        from pfrl.experiments.evaluator import save_agent
+        def save_model_hook(env, agent, evaluator, step, eval_stats, agent_stats, env_stats):
+            """Save model every `args.save_iterval` steps"""
+            if step >= evaluator.prev_eval_t + args.save_interval:
+                filename = "step_{:08d}".format(step)
+                if not os.path.isdir(os.path.join(evaluator.outdir, filename)):
+                    os.makedirs(os.path.join(evaluator.outdir, filename))
+                save_agent(agent, filename, evaluator.outdir, evaluator.logger)
+
         experiments.train_agent_with_evaluation(
             agent=agent,
             env=env,
@@ -194,6 +223,10 @@ def main():
             outdir=args.outdir,
             save_best_so_far_agent=True,
             eval_env=eval_env,
+            use_tensorboard=True,
+            checkpoint_freq=args.save_interval,
+            step_offset=step_offset
+            # evaluation_hooks=(save_model_hook,)
         )
 
         dir_of_best_network = os.path.join(args.outdir, "best")
