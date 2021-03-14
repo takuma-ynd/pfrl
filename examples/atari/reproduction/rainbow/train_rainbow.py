@@ -51,6 +51,7 @@ def main():
     parser.add_argument("--eval-interval", type=int, default=50000)
     parser.add_argument("--save-interval", type=int, default=50000)
     parser.add_argument("--flare", action="store_true", default=False)
+    parser.add_argument("--latent-stack", action="store_true", default=False)
     parser.add_argument("--load-contd", action="store_true", default=False)
     parser.add_argument(
         "--log-level",
@@ -114,6 +115,14 @@ def main():
 
     n_actions = env.action_space.n
 
+    assert not (args.flare and args.latent_stack), 'You cannot use both of args.flare and args.latent_stack. Use only one of them.'
+    if args.flare:
+        flare_method = 'flare'
+    elif args.latent_stack:
+        flare_method = 'latent_stack'
+    else:
+        flare_method = None
+
     n_atoms = 51
     v_max = 10
     v_min = -10
@@ -124,7 +133,7 @@ def main():
         v_max,
         n_input_channels=1 if args.flare else env.observation_space.shape[0],
         obs_shape=env.observation_space.shape,
-        flare=args.flare
+        flare_method=flare_method
     )
 
     # Noisy nets
