@@ -27,6 +27,7 @@ def train_agent(
     steps,
     outdir,
     checkpoint_freq=None,
+    checkpoint_after_wc=3.3,
     max_episode_len=None,
     step_offset=0,
     evaluator=None,
@@ -36,6 +37,8 @@ def train_agent(
     logger=None,
 ):
 
+    import time
+    start_time = time.time()
     logger = logger or logging.getLogger(__name__)
 
     episode_r = 0
@@ -99,7 +102,7 @@ def train_agent(
                 episode_r = 0
                 episode_len = 0
                 obs = env.reset()
-            if checkpoint_freq and t % checkpoint_freq == 0:
+            if checkpoint_freq and t % checkpoint_freq == 0 and (time.time() - start_time) / (60 * 60) > checkpoint_after_wc:
                 save_agent(agent, t, outdir, logger, suffix="_checkpoint")
 
     except (Exception, KeyboardInterrupt):
