@@ -87,7 +87,7 @@ def main():
     train_seed = args.seed
     test_seed = 2 ** 31 - 1 - args.seed
 
-    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=args.exp_id)
+    args.outdir = experiments.prepare_output_dir(args, args.outdir, exp_id=args.exp_id, make_backup=False)
     print("Output files are saved in {}".format(args.outdir))
 
     def make_env(test):
