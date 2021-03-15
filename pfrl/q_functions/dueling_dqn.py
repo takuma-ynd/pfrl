@@ -111,6 +111,8 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
             elif flare_method == 'latent_stack':
                 self.main_stream = nn.Linear(64 * 7 * 7 * time_step, 1024)
 
+            self.layer_norm = nn.LayerNorm(1024)
+            self.additional_layer = nn.Linear(1024, 1024)
             self.a_stream = nn.Linear(1024 // 2, n_actions * n_atoms)
             self.v_stream = nn.Linear(1024 // 2, n_atoms)
 
@@ -119,17 +121,18 @@ class DistributionalDuelingDQN(nn.Module, StateQFunction):
         self.conv_layers.apply(constant_bias_initializer(bias=bias))
 
     def forward(self, x):
+        batch_size = x.shape[0]
         if self.flare_method is None:
             h = x
             for layer in self.conv_layers:
                 h = self.activation(layer(h))
+            h = self.activation(self.main_stream(h.view(batch_size, -1)))
         else:
             h = self.forward_flare(x, method=self.flare_method)
+            h = self.activation(self.main_stream(h.view(batch_size, -1)))
+            h = self.layer_norm(h)
+            h = self.additional_layer(h)
 
-        # Advantage
-        batch_size = x.shape[0]
-
-        h = self.activation(self.main_stream(h.view(batch_size, -1)))
         h_a, h_v = torch.chunk(h, 2, dim=1)
         ya = self.a_stream(h_a).reshape((batch_size, self.n_actions, self.n_atoms))
 
